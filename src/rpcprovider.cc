@@ -42,9 +42,9 @@ void RpcProvider::NotifyService(google::protobuf::Service *service)
 void RpcProvider::Run()
 {
     // 读取配置文件rpcserver的信息
-    std::string ip = MprpcApplication::GetInstance().GetConfig().Load("rpcserverip");
-    uint16_t port = atoi(MprpcApplication::GetInstance().GetConfig().Load("rpcserverport").c_str());
-    muduo::net::InetAddress address(ip, port);
+    std::string ip = MprpcApplication::GetInstance().GetConfig().Load("host_ip");
+    std::string port = MprpcApplication::GetInstance().GetConfig().Load("host_port");
+    muduo::net::InetAddress address(ip, atoi(port.c_str()));
 
     // 创建TcpServer对象
     muduo::net::TcpServer server(&m_eventLoop, address, "RpcProvider");
@@ -61,23 +61,28 @@ void RpcProvider::Run()
     // session timeout   30s     zkclient 网络I/O线程  1/3 * timeout 时间发送ping消息
     ZkClient zkCli;
     zkCli.Start();
-    // service_name为永久性节点    method_name为临时性节点
-    for (auto &sp : m_serviceMap) 
-    {
-        // /service_name   /UserServiceRpc
-        std::string service_path = "/" + sp.first;
-        zkCli.Create(service_path.c_str(), nullptr, 0);
-        for (auto &mp : sp.second.m_methodMap)
-        {
-            // /service_name/method_name   /UserServiceRpc/Login 存储当前这个rpc服务节点主机的ip和port
-            std::string method_path = service_path + "/" + mp.first;
-            char method_path_data[128] = {0};
-            sprintf(method_path_data, "%s:%d", ip.c_str(), port);
-            // ZOO_EPHEMERAL表示znode是一个临时性节点
-            zkCli.Create(method_path.c_str(), method_path_data, strlen(method_path_data), ZOO_EPHEMERAL);
-        }
+    // 创建一个host根节点
+    std::string host_root = "/";
+    if(!zkCli.isExist(host_root.c_str())){
+        zkCli.Create(host_root.c_str(), nullptr, 0);
     }
-
+    // 在创建一个host节点，节点名称为dataserver的节点名称
+    std::string name = MprpcApplication::GetInstance().GetConfig().Load("name");
+    std::string prefix_name = MprpcApplication::GetInstance().GetConfig().Load("prefix_name");
+    std::string role = MprpcApplication::GetInstance().GetConfig().Load("role");
+    std::string  host_address = ip + port;
+    if(role == "role") {
+        int loc = 1;
+        std::string temp = name;
+        temp.push_back(loc+48);
+        while(zkCli.isExist(temp.c_str())){
+            loc++;
+            temp[temp.size()-1] = loc+48;
+        }
+        name = temp;
+    }
+    zkCli.Create(name.c_str(), host_address.c_str(), host_address.size(), 0);
+    
     // rpc服务端准备启动，打印信息
     std::cout << "RpcProvider start service at ip:" << ip << " port:" << port << std::endl;
 

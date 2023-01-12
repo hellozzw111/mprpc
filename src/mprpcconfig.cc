@@ -3,52 +3,31 @@
 #include <iostream>
 #include <string>
 
+#include "yaml-cpp/yaml.h"
+
 // 负责解析加载配置文件
 void MprpcConfig::LoadConfigFile(const char *config_file)
 {
-    FILE *pf = fopen(config_file, "r");
-    if (nullptr == pf)
-    {
-        std::cout << config_file << " is note exist!" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    // 1.注释   2.正确的配置项 =    3.去掉开头的多余的空格 
-    while(!feof(pf))
-    {
-        char buf[512] = {0};
-        fgets(buf, 512, pf);
-
-        // 去掉字符串前面多余的空格
-        std::string read_buf(buf);
-        Trim(read_buf);
-
-        // 判断#的注释
-        if (read_buf[0] == '#' || read_buf.empty())
-        {
-            continue;
-        }
-
-        // 解析配置项
-        int idx = read_buf.find('=');
-        if (idx == -1)
-        {
-            // 配置项不合法
-            continue;
-        }
-
-        std::string key;
-        std::string value;
-        key = read_buf.substr(0, idx);
-        Trim(key);
-        // rpcserverip=127.0.0.1\n
-        int endidx = read_buf.find('\n', idx);
-        value = read_buf.substr(idx+1, endidx-idx-1);
-        Trim(value);
-        m_configMap.insert({key, value});
-    }
-
-    fclose(pf);
+    YAML::Node config = YAML::LoadFile(config_file);
+    std::string name = config["name"].as<std::string>();
+    std::string prefix_name = config["prefix_name"].as<std::string>();
+    std::string role = config["role"].as<std::string>();
+    YAML::Node ip_host = config["ip"][0];
+    YAML::Node ip_zookeeper = config["ip"][0];
+    YAML::Node port_host = config["port"][0];
+    YAML::Node port_zookeeper = config["port"][0];
+    std::string role = config["role"].as<std::string>();
+    std::string name = config["name"].as<std::string>();
+    std::string prefix_name = config["prefix_name"].as<std::string>();
+    
+    m_configMap.insert({"host_ip", ip_host["host"].as<std::string>()});
+    m_configMap.insert({"host_port", port_host["host"].as<std::string>()});
+    m_configMap.insert({"zookeeper_ip", ip_zookeeper["zookeeper"].as<std::string>()});
+    m_configMap.insert({"zookeeper_host", port_zookeeper["zookeeper"].as<std::string>()});
+    m_configMap.insert({"role", role});
+    m_configMap.insert({"name", name});
+    m_configMap.insert({"prefix_name", prefix_name});
+    
 }
 
 // 查询配置项信息

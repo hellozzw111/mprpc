@@ -32,8 +32,8 @@ ZkClient::~ZkClient()
 // 连接zkserver
 void ZkClient::Start()
 {
-    std::string host = MprpcApplication::GetInstance().GetConfig().Load("zookeeperip");
-    std::string port = MprpcApplication::GetInstance().GetConfig().Load("zookeeperport");
+    std::string host = MprpcApplication::GetInstance().GetConfig().Load("zookeeper_ip");
+    std::string port = MprpcApplication::GetInstance().GetConfig().Load("zookeeper_port");
     std::string connstr = host + ":" + port;
     
 	/*
@@ -83,6 +83,31 @@ void ZkClient::Create(const char *path, const char *data, int datalen, int state
 	}
 }
 
+void ZkClient::Delete(const char* path) 
+{
+	char path_buffer[128];
+	int bufferlen = sizeof(path_buffer);
+	int flag;
+	// 首先判断路径是否存在，如果不存在则删除失败
+	flag = zoo_exists(m_zhandle, path, 0, nullptr);
+	if(ZNONODE == flag)
+	{
+		std::cout<< "znode not exitst!"<<std::endl;
+	}
+	else
+	{
+		flag = zoo_delete(m_zhandle, path, 0);
+		if(ZOK == flag) 
+		{
+			std::cout<<"znode delete success!"<<std::endl;
+		}
+		else
+		{
+			std::cout<<"znode delete false!"<<std::endl;
+		}
+	}
+}
+
 // 根据指定的path，获取znode节点的值
 std::string ZkClient::GetData(const char *path)
 {
@@ -98,4 +123,10 @@ std::string ZkClient::GetData(const char *path)
 	{
 		return buffer;
 	}
+}
+
+bool ZkClient::isExist(const char* path) 
+{
+	bool isexist = false;
+	return zoo_exists(m_zhandle, path, 0, nullptr);
 }
